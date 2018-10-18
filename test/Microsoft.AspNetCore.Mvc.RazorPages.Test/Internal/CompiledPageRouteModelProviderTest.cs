@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
-using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
 using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
 using Microsoft.AspNetCore.Razor.Hosting;
@@ -564,6 +563,42 @@ namespace Microsoft.AspNetCore.Mvc.RazorPages.Internal
         }
 
         [Fact]
+        public void OnProvidersExecuting_IgnoresRazorFilesWithUnderscorePrefix()
+        {
+            // Arrange
+            var descriptors = new[]
+            {
+                CreateVersion_2_1_Descriptor("/Pages/_About.cshtml"),
+                CreateVersion_2_1_Descriptor("/Pages/Home.cshtml"),
+            };
+
+            var provider = CreateProvider(descriptors: descriptors);
+            var context = new PageRouteModelProviderContext();
+
+            // Act
+            provider.OnProvidersExecuting(context);
+
+            // Assert
+            Assert.Collection(
+                context.RouteModels,
+                result =>
+                {
+                    Assert.Equal("/Pages/Home.cshtml", result.RelativePath);
+                    Assert.Equal("/Home", result.ViewEnginePath);
+                    Assert.Collection(
+                        result.Selectors,
+                        selector => Assert.Equal("Home", selector.AttributeRouteModel.Template));
+                    Assert.Collection(
+                        result.RouteValues.OrderBy(k => k.Key),
+                        kvp =>
+                        {
+                            Assert.Equal("page", kvp.Key);
+                            Assert.Equal("/Home", kvp.Value);
+                        });
+                });
+        }
+
+        [Fact]
         public void GetRouteTemplate_ReturnsPathFromRazorPageAttribute()
         {
             // Arrange
@@ -618,6 +653,71 @@ namespace Microsoft.AspNetCore.Mvc.RazorPages.Internal
 
             // Assert
             Assert.Null(result);
+        }
+
+        [Fact]
+        public void IsRouteable_ReturnsFalse_IfFileNameStartsWithUnderscore()
+        {
+            // Arrange
+            var viewDescriptor = CreateVersion_2_1_Descriptor("/Pages/_Index.cshtml");
+
+            // Act
+            var result = CompiledPageRouteModelProvider.IsRouteable(viewDescriptor);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void IsRouteable_ReturnsFalse_IfAreaFileNameStartsWithUnderscore()
+        {
+            // Arrange
+            var viewDescriptor = CreateVersion_2_1_Descriptor("/Areas/TestArea/Pages/_Index.cshtml");
+
+            // Act
+            var result = CompiledPageRouteModelProvider.IsRouteable(viewDescriptor);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void IsRouteable_ReturnsTrue_IfFileNameDoesNotStartWithUnderscore()
+        {
+            // Arrange
+            var viewDescriptor = CreateVersion_2_1_Descriptor("/Pages/Index.cshtml");
+
+            // Act
+            var result = CompiledPageRouteModelProvider.IsRouteable(viewDescriptor);
+
+            // Assert
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void IsRouteable_ReturnsTrue_IfFilePathContainsUnderscore()
+        {
+            // Arrange
+            var viewDescriptor = CreateVersion_2_1_Descriptor("/Pages/_Test/Index.cshtml");
+
+            // Act
+            var result = CompiledPageRouteModelProvider.IsRouteable(viewDescriptor);
+
+            // Assert
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void IsRouteable_ReturnsTrue_IfFileNameContainsUnderscore()
+        {
+            // Arrange
+            var viewDescriptor = CreateVersion_2_1_Descriptor("/Pages/Add_Person.cshtml");
+
+            // Act
+            var result = CompiledPageRouteModelProvider.IsRouteable(viewDescriptor);
+
+            // Assert
+            Assert.True(result);
         }
 
         private TestCompiledPageRouteModelProvider CreateProvider(

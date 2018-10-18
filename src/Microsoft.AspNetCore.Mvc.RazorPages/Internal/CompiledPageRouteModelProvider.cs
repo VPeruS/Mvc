@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
@@ -81,7 +82,7 @@ namespace Microsoft.AspNetCore.Mvc.RazorPages.Internal
                     continue;
                 }
 
-                if (IsRazorPage(viewDescriptor))
+                if (IsRouteable(viewDescriptor) && IsRazorPage(viewDescriptor))
                 {
                     yield return viewDescriptor;
                 }
@@ -164,6 +165,13 @@ namespace Microsoft.AspNetCore.Mvc.RazorPages.Internal
             }
 
             return null;
+        }
+
+        internal static bool IsRouteable(CompiledViewDescriptor viewDescriptor)
+        {
+            // Pages like _ViewImports should not be routeable.
+            var fileName = Path.GetFileName(viewDescriptor.RelativePath);
+            return !fileName.StartsWith("_", StringComparison.Ordinal);
         }
     }
 }
